@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="宝田ジャグ">
+    <meta name="author" content="Akira Takarada">
+    <script type="importmap">
+            {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@v0.149.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@v0.149.0/examples/jsm/"
+            }
+            }
+    </script>
+    <title>宝田ジャグ</title>
+</head>
+<body>
+    <p>宝田ジャグへようこそ</p>
+    <table>
+        <tr ><td></td><td colspan="3"><div id="cube" style="width: 50%;aspect-ratio: 1476 / 450;"></div></td></tr><!-- 1476 / 460 -->
+        <tr><td><!--<button id="mbet" type="button">MAXBET</button><br />--><img id="stt" src="./img/lever2.png" /><br /></td>
+            <td id="l3" style="text-align: center;"><img id="lbt" src="./img/stop.png" /></td>
+            <td id="c3" style="text-align: center;"><img id="cbt" src="./img/stop.png" /></td>
+            <td id="r3" style="text-align: center;"><img id="rbt" src="./img/stop.png" /></td>
+        </tr>
+    </table>
+    <script type="module">
+        import * as THREE from 'three';
+        const cWidth = window.innerWidth * 0.5;
+        const cHeight = cWidth * 450 / 1476;
+        //alert(cWidth + ' / ' + cHeight)
+
+        // シーンの作成
+        const scene = new THREE.Scene();
+
+        //レンダラーの設定
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(cWidth, cHeight); // 1476 / 460
+        document.getElementById('cube').appendChild(renderer.domElement);
+
+        //document.getElementById('msg').innerText = 'size:' + window.innerWidth + ' / ' + window.innerHeight
+
+        // カメラを作成
+        const camera = new THREE.PerspectiveCamera(
+            30,
+            cWidth / cHeight,
+            1,
+            cWidth*2*0.87
+        );
+        camera.position.set(0, 0, cWidth*2*0.47);
+
+        // リールを作成
+        const loadingManager = new THREE.LoadingManager()
+        loadingManager.onStart = () =>
+        {
+            console.log('loading started')
+        }
+        loadingManager.onLoad = () =>
+        {
+            console.log('loading finished')
+        }
+        loadingManager.onProgress = () =>
+        {
+            console.log('loading progressing')
+        }
+        loadingManager.onError = () =>
+        {
+            console.log('loading error')
+        }
+        const textureLoader = new THREE.TextureLoader(loadingManager);
+        const textureReelL = textureLoader.load("./img/zugara_l.png");
+        const textureReelC = textureLoader.load("./img/zugara_c.png");
+        const textureReelR = textureLoader.load("./img/zugara_r.png");
+        const textureReels = [textureReelL, textureReelC, textureReelR];
+        const textureReelL_blur = textureLoader.load("./img/zugara_l_blur.png");
+        const textureReelC_blur = textureLoader.load("./img/zugara_c_blur.png");
+        const textureReelR_blur = textureLoader.load("./img/zugara_r_blur.png");
+
+        // 左リールを作成
+        const meshReelL = new THREE.Mesh(new THREE.CylinderGeometry( cWidth/3, cWidth/3, cWidth/3, 21 ,1,true), new THREE.MeshPhongMaterial({map: textureReelL}));
+        meshReelL.rotation.set(0,0,Math.PI/2); 
+        meshReelL.position.set(-1*cWidth*1.1/3, 0, 0);
+        scene.add(meshReelL);
+		meshReelL.name = "ReelL";
+
+        // 中リールを作成
+        const meshReelC = new THREE.Mesh(new THREE.CylinderGeometry( cWidth/3, cWidth/3, cWidth/3, 21 ,1,true), new THREE.MeshPhongMaterial({map: textureReelC}));
+        meshReelC.rotation.set(0,0,Math.PI/2); 
+        meshReelC.position.set(0, 0, 0);
+        scene.add(meshReelC);
+		meshReelC.name = "ReelC";
+
+        // 右リールを作成
+        const meshReelR = new THREE.Mesh(new THREE.CylinderGeometry( cWidth/3, cWidth/3, cWidth/3, 21 ,1,true), new THREE.MeshPhongMaterial({map: textureReelR}));
+        meshReelR.rotation.set(0,0,Math.PI/2); 
+        meshReelR.position.set(cWidth*1.1/3, 0, 0);
+        scene.add(meshReelR);
+		meshReelR.name = "ReelR";
+
+        // 光源を作成
+        const light = new THREE.DirectionalLight(0xffffff);
+        light.intensity = 2; 
+        light.position.set(1, 1, 1); 
+        scene.add(light);
+
+        // リールの初期位置調整
+        meshReelL.rotation.x -= ((Math.PI*2)/21)*1.5;
+        meshReelC.rotation.x -= ((Math.PI*2)/21)*1.5;
+        meshReelR.rotation.x -= ((Math.PI*2)/21)*1.5;
+        const meshReels = [meshReelL, meshReelC, meshReelR];
+
+
+        function chgTexture(nameStr, textureObj) {
+			var object = scene.getObjectByName(nameStr);
+			object.material.map = textureObj;
+			object.material.needsUpdate = true;
+        }
+        //chgTexture("ReelL", textureReelL_blur);
+        //chgTexture("ReelC", textureReelC_blur);
+        //chgTexture("ReelR", textureReelR_blur);
+
+
+        // レンダリング
+        renderer.render(scene, camera);
+        roll();
+
+        function roll() {
+            requestAnimationFrame(roll);
+
+            // 箱を回転させる
+            //meshReelL.rotation.x += 0.18;
+            //meshReelC.rotation.x += 0.18;
+            //meshReelR.rotation.x += 0.18;
+            //box.rotation.y += 0.01;
+
+            // レンダリング
+            renderer.render(scene, camera);
+        }
+
+
+
+
+
+
+
+
+        //アニメーションの開始時刻と経過時間を格納する変数
+        let timeStart, timeElapsed;
+        function frm(timeStamp) {
+            // 初期処理
+            if (timeStart === undefined) timeStart = timeStamp;
+            timeElapsed = timeStamp - timeStart;
+            timeStart = timeStamp;
+
+            // フレーム処理
+            paintReel(timeElapsed, enmLeft);
+            paintReel(timeElapsed, enmCenter);
+            paintReel(timeElapsed, enmRight);
+
+
+
+            requestAnimationFrame(frm);
+        }
+
+        // メイン基板
+        let main_flgBona = 0; // 0:なし、1:ビッグ、2:バケ
+        let main_flgKoyaku = 0; // 0:ハズレ、1:ブドウ、2:リプ、3:チェ、4:ピエロ、5:ベル、6:中チェ
+
+        // リール共通
+        const enmLeft = 0;
+        const enmCenter = 1;
+        const enmRight = 2;
+        const msec1koma = (60000 / 80) / 21; // 1コマ回転時間（ミリ秒）
+        const rad1koma = (2 * Math.PI) / 21; // 1コマ回転時間（ミリ秒）
+        //const reelObjs = [[document.getElementById("l1"), document.getElementById("l2"), document.getElementById("l3")], [document.getElementById("c1"), document.getElementById("c2"), document.getElementById("c3")],[document.getElementById("r1"), document.getElementById("r2"), document.getElementById("r3")]];
+        const lHairetsu = [2,3,2,1,4,2,3,2,5,0,2,3,2,4,1,2,3,2,3,0,6];
+        const cHairetsu = [5,4,2,1,3,4,2,6,3,4,2,1,3,4,2,6,3,4,2,0,3];
+        const rHairetsu = [3,6,5,2,3,6,5,2,3,6,5,2,3,6,5,2,3,6,1,0,2];
+        const reelHairetsu = [lHairetsu, cHairetsu, rHairetsu];
+        const stopButtons = [document.getElementById("lbt"), document.getElementById("cbt"), document.getElementById("rbt")];
+        const maxBetButton = document.getElementById("mbet");
+        const startButton = document.getElementById("stt");
+        let reelTotalMsec = [-1,-1,-1];    // 回転時間累計
+        let reelPos = [20,20,20];    // 回転時間累計
+        let reelPosPrev = [19,19,19];    // 回転時間累計
+        let reelPosWillStop = [20, 20, 20];    // 回転時間累計
+
+        function getReelPos(totalMsec) {
+            return Math.floor(totalMsec / msec1koma) % 21;
+        }
+        function positiveModulo(dividend, divisor) {
+            let remainder = dividend % divisor;
+            return remainder < 0 ? remainder + Math.abs(divisor) : remainder;
+        }
+
+        // リール回転アニメーション
+        function paintReel(msec, pos) {
+            if (isNaN(msec)) msec = 0;
+            if (0 <= reelTotalMsec[pos]) { // 回転中
+                //meshReels[pos].rotation.x += 2 * Math.PI * (msec / (msec1koma * 21));
+                reelTotalMsec[pos] += msec;
+                //reelPos[pos] = getReelPos(reelTotalMsec[pos]);
+
+                if (reelPos[pos] != reelPosWillStop[pos]) { // STOPボタン押下後の状態
+                    meshReels[pos].rotation.x += 2 * Math.PI * (msec / (msec1koma * 21));
+                    reelPos[pos] = getReelPos(reelTotalMsec[pos]);
+                } else {
+                    meshReels[pos].rotation.x = (-1 * ((Math.PI * 2)/21) * 1.5); // 初期位置（リール20番）にいったん戻す
+                    meshReels[pos].rotation.x += rad1koma * ((reelPos[pos] + 1) % 21); //rad1koma * ((Math.floor(meshReels[pos].rotation.x / rad1koma) % 21) - 1.5);
+                    reelTotalMsec[pos] = -1;
+                }
+            }
+
+
+            if (reelPos[pos] != reelPosPrev[pos]) { // 次のコマ遷移時、描画
+                //reelObjs[pos][0].src = egara[reelHairetsu[pos][reelPos[pos]]].src;
+                //reelObjs[pos][1].src = egara[reelHairetsu[pos][positiveModulo(reelPos[pos] - 1, 21)]].src;
+                //reelObjs[pos][2].src = egara[reelHairetsu[pos][positiveModulo(reelPos[pos] - 2, 21)]].src;
+                reelPosPrev[pos] = reelPos[pos];
+            }
+
+
+            
+        }
+        //paintReel(0, 0);
+        //paintReel(0, 1);
+        //paintReel(0, 2);
+        
+        function stopReel(pos) {
+            //reelTotalMsec[pos] = -1;
+            reelPosWillStop[pos] = (reelPos[pos]) % 21;
+            chgTexture(meshReels[pos].name, textureReels[pos]);
+        }
+        function stopL(e){
+            stopReel(enmLeft);
+        }
+        stopButtons[enmLeft].addEventListener("mousedown",stopL);
+        function stopC(e){
+            stopReel(enmCenter);
+        }
+        stopButtons[enmCenter].addEventListener("mousedown",stopC);
+        function stopR(e){
+            stopReel(enmRight);
+        }
+        stopButtons[enmRight].addEventListener("mousedown",stopR);
+        //function maxBet(e){
+        //    //stopReel(enmRight);
+        //}
+        //maxBetButton.addEventListener("mousedown",maxBet);
+        function startReel(e){
+            //取得したURLにタイムスタンプをパラメータとして付与する
+            const setParamUrl = './img/lever.gif?ts=' + Math.floor((new Date()).getTime() / 1000);
+            startButton.src = setParamUrl;
+
+            chgTexture("ReelL", textureReelL_blur);
+            chgTexture("ReelC", textureReelC_blur);
+            chgTexture("ReelR", textureReelR_blur);
+
+            
+
+            reelTotalMsec = [
+                msec1koma * reelPos[enmLeft]
+                ,msec1koma * reelPos[enmCenter]
+                ,msec1koma * reelPos[enmRight]
+            ];
+            reelPosWillStop = [-1,-1,-1];
+        }
+        startButton.addEventListener("mousedown",startReel);
+
+        frm();
+    </script>
+</body>
+</html>
