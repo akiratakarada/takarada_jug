@@ -14,60 +14,156 @@
             }
     </script>
     <title>宝田ジャグ</title>
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* スクロールバーを消す */
+        background-color: #000; /* 隙間は漆黒 */
+    }
+</style>
 </head>
-<body>
-    <p>宝田ジャグへようこそ</p>
-    <table>
-        <tr ><td></td><td colspan="3"><div id="cube" style="width: 50%;aspect-ratio: 1476 / 450;"></div></td></tr><!-- 1476 / 460 -->
-        <tr><td><!--<button id="mbet" type="button">MAXBET</button><br />--><img id="stt" src="./img/lever2.png" /><br /></td>
-            <td id="l3" style="text-align: center;"><img id="lbt" src="./img/stop.png" /></td>
-            <td id="c3" style="text-align: center;"><img id="cbt" src="./img/stop.png" /></td>
-            <td id="r3" style="text-align: center;"><img id="rbt" src="./img/stop.png" /></td>
-        </tr>
-    </table>
+<body><div id="cube" style="width: 100%;height: 0vh;"></div>
     <script type="module">
+        // 1. オーディオ管理クラス
+        class SlotSound {
+            constructor() {
+                this.sounds = {};
+            }
+
+            // 音源をロード
+            load(name, src) {
+                this.sounds[name] = new Audio(src);
+            }
+
+            // 再生（連打や重複に対応するため、毎回初期化して叩く）
+            play(name) {
+                if (this.sounds[name]) {
+                    this.sounds[name].currentTime = 0; // 巻き戻して
+                    this.sounds[name].play().catch(e => console.log("ユーザーの操作がないと音は鳴らんぜ：", e));
+                }
+            }
+        }
+
+        // 2. インスタンス化とロード（ファイル名はCEOの環境に合わせて調整してください）
+        const soundEngine = new SlotSound();
+        soundEngine.load('leverOn', './sound/leveron.wav');
+        soundEngine.load('stop', './sound/stop.wav');
+
+        /**
+         * 宝田独自規格：可変スケーリング・リールマージエンジン
+         */
+        async function generateHorizontalReel(symbolMaster, reelLayout, frameSize = 256) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = frameSize * reelLayout.length;
+            canvas.height = frameSize;
+            
+            // 背景を白で初期化
+            ctx.fillStyle = '#ffffff'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 【設定】図柄ごとの表示倍率（1.0 = フルサイズ）
+            // ボーナス図柄は 1.0、小役は 0.7〜0.8 あたりが「実機感」の黄金比です
+            const symbolScales = {
+                '7': 0.95,     // 7は少し余裕を持たせる
+                'BAR': 0.95,   // BARも同様
+                'BEL': 0.75,   // おにぎり（ベル）は小ぶりに
+                'BUDOU': 0.75, // ぶどう
+                'PIERO': 0.80, // ピエロ
+                'RIP': 0.70,   // リプレイ（パンダ）
+                'CHE': 0.75    // チェリー
+            };
+
+            for (let i = 0; i < reelLayout.length; i++) {
+                const symbolId = reelLayout[i];
+                const imageSrc = symbolMaster[symbolId];
+
+                if (!imageSrc) continue;
+
+                const img = new Image();
+                img.src = imageSrc;
+                await new Promise(resolve => img.onload = resolve);
+
+                // --- 描画サイズの計算 ---
+                // 倍率を取得（定義されていなければ1.0）
+                const scale = symbolScales[symbolId] || 1.0;
+                const drawSize = frameSize * scale;
+                // 中心に置くためのオフセット計算（これが余白調整の肝！）
+                const offset = -drawSize / 2;
+
+                ctx.save();
+
+                const centerX = i * frameSize + frameSize / 2;
+                const centerY = frameSize / 2;
+                ctx.translate(centerX, centerY);
+
+                // 右に90度回転
+                ctx.rotate(Math.PI / 2);
+
+                // FITさせず、計算したサイズで中心から描画
+                // これにより、frameSize（コマ枠）はそのままで中身だけが小さくなる
+                ctx.drawImage(img, offset, offset, drawSize, drawSize);
+
+                ctx.restore();
+
+                console.log(`[T-Standard] ${i + 1}コマ目：ID【${symbolId}】を倍率${scale}でマージ完了`);
+            }
+
+            return canvas;
+        }
+
+        // --- CEOの運用イメージ ---
+
+        // 第1引数：図柄マスター（ID列）
+        const mySymbols = { 
+            'BUDOU': './img/budo.png',
+            'BEL':  './img/onigiri.png',
+            'PIERO': './img/piero.png',
+            'RIP':  './img/panda.png',
+            'BAR':   './img/god.png',
+            '7':   './img/7.png',
+            'CHE':   './img/cherry2.png'
+        };
+
+        // 第2引数：リール配列（IDで指定）
+        const layoutLeft   = ['BEL','7','RIP','BUDOU','RIP','BUDOU','BAR','CHE','BUDOU','RIP','BUDOU','7','PIERO','BUDOU','RIP','BUDOU','CHE','BAR','BUDOU','RIP','BUDOU'];
+        const layoutCenter = ['RIP','7','BUDOU','CHE','RIP','BEL','BUDOU','CHE','RIP','BAR','BUDOU','CHE','RIP','BEL','BUDOU','CHE','RIP','BAR','BUDOU','CHE','PIERO'];
+        const layoutRight  = ['BUDOU','7','BAR','BEL','RIP','BUDOU','PIERO','BEL','RIP','BUDOU','PIERO','BEL','RIP','BUDOU','PIERO','BEL','RIP','BUDOU','PIERO','BEL','RIP'];
+
+
+
+
         import * as THREE from 'three';
-        const cWidth = window.innerWidth * 0.5;
-        const cHeight = cWidth * 450 / 1476;
-        //alert(cWidth + ' / ' + cHeight)
+
+        // 1. サイズをブラウザの表示領域いっぱいに設定
+        let width = window.innerWidth;
+        let height = window.innerHeight;
 
         // シーンの作成
         const scene = new THREE.Scene();
 
         //レンダラーの設定
         const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(cWidth, cHeight); // 1476 / 460
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(window.devicePixelRatio); // 解像度をデバイスに合わせる（ボケ防止）
         document.getElementById('cube').appendChild(renderer.domElement);
 
         //document.getElementById('msg').innerText = 'size:' + window.innerWidth + ' / ' + window.innerHeight
 
         // カメラを作成
-        const camera = new THREE.PerspectiveCamera(
-            30,
-            cWidth / cHeight,
-            1,
-            cWidth*2*0.87
-        );
-        camera.position.set(0, 0, cWidth*2*0.47);
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2);
+        camera.position.set(0, 0, 0.7);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
 
         // リールを作成
         const loadingManager = new THREE.LoadingManager()
-        loadingManager.onStart = () =>
-        {
-            console.log('loading started')
-        }
-        loadingManager.onLoad = () =>
-        {
-            console.log('loading finished')
-        }
-        loadingManager.onProgress = () =>
-        {
-            console.log('loading progressing')
-        }
-        loadingManager.onError = () =>
-        {
-            console.log('loading error')
-        }
+        loadingManager.onStart = () => {console.log('loading started')}
+        loadingManager.onLoad = () => {console.log('loading finished')}
+        loadingManager.onProgress = () =>{console.log('loading progressing')}
+        loadingManager.onError = () =>{console.log('loading error')}
         const textureLoader = new THREE.TextureLoader(loadingManager);
         const textureReelL = textureLoader.load("./img/zugara_l.png");
         const textureReelC = textureLoader.load("./img/zugara_c.png");
@@ -76,32 +172,91 @@
         const textureReelL_blur = textureLoader.load("./img/zugara_l_blur.png");
         const textureReelC_blur = textureLoader.load("./img/zugara_c_blur.png");
         const textureReelR_blur = textureLoader.load("./img/zugara_r_blur.png");
+        const reelWidth = 0.05;
+        const reelheight = 0.22 / 2; //半径
 
         // 左リールを作成
-        const meshReelL = new THREE.Mesh(new THREE.CylinderGeometry( cWidth/3, cWidth/3, cWidth/3, 21 ,1,true), new THREE.MeshPhongMaterial({map: textureReelL}));
-        meshReelL.rotation.set(0,0,Math.PI/2); 
-        meshReelL.position.set(-1*cWidth*1.1/3, 0, 0);
+        const matReelL = new THREE.MeshPhongMaterial({map: new THREE.CanvasTexture(await generateHorizontalReel(mySymbols, layoutLeft))});
+        const meshReelL = new THREE.Mesh(new THREE.CylinderGeometry(reelheight, reelheight, reelWidth, 21 ,1 ,true), matReelL);
+        meshReelL.rotation.set(0, 0, Math.PI / 2); 
+        meshReelL.position.set(-1 * (reelWidth * 1.5 + 0.01), 0, 0);
         scene.add(meshReelL);
 		meshReelL.name = "ReelL";
 
         // 中リールを作成
-        const meshReelC = new THREE.Mesh(new THREE.CylinderGeometry( cWidth/3, cWidth/3, cWidth/3, 21 ,1,true), new THREE.MeshPhongMaterial({map: textureReelC}));
-        meshReelC.rotation.set(0,0,Math.PI/2); 
+        const meshReelC = new THREE.Mesh(new THREE.CylinderGeometry(reelheight, reelheight, reelWidth, 21 ,1 ,true), new THREE.MeshPhongMaterial(
+            {map: new THREE.CanvasTexture(await generateHorizontalReel(mySymbols, layoutCenter))}));
+        meshReelC.rotation.set(0, 0, Math.PI / 2); 
         meshReelC.position.set(0, 0, 0);
         scene.add(meshReelC);
 		meshReelC.name = "ReelC";
 
         // 右リールを作成
-        const meshReelR = new THREE.Mesh(new THREE.CylinderGeometry( cWidth/3, cWidth/3, cWidth/3, 21 ,1,true), new THREE.MeshPhongMaterial({map: textureReelR}));
-        meshReelR.rotation.set(0,0,Math.PI/2); 
-        meshReelR.position.set(cWidth*1.1/3, 0, 0);
+        const meshReelR = new THREE.Mesh(new THREE.CylinderGeometry(reelheight, reelheight, reelWidth, 21 ,1 ,true), new THREE.MeshPhongMaterial(
+            {map: new THREE.CanvasTexture(await generateHorizontalReel(mySymbols, layoutRight))}));
+        meshReelR.rotation.set(0, 0, Math.PI / 2); 
+        meshReelR.position.set(reelWidth * 1.5 + 0.01, 0, 0);
         scene.add(meshReelR);
 		meshReelR.name = "ReelR";
 
+        // 1. 球体の作成 (半径20, 分割数32)
+        const leverGeometry = new THREE.SphereGeometry(0.02, 32, 32);
+        const leverMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,       // 基本の赤色
+            emissive: 0xff0000,    // 発光色
+            emissiveIntensity: 0   // 最初は消灯（0）
+        });
+        const leverBall = new THREE.Mesh(leverGeometry, leverMaterial);
+        scene.add(leverBall);
+        leverBall.position.set(-1 * 0.18, -0.14, reelheight + 0.0001);
+
+        // 3. 光ったり消えたりさせる関数（点滅ロジック）
+        function updateLeverBlink(time) {
+            // サイン波を使って、ふわふわと点滅させる（期待値を煽る演出）
+            // 0から1の間を往復させる
+            leverMaterial.emissiveIntensity = (Math.sin(time * 0.02) + 1) / 2;
+        }
+
+        // 左ボタンを作成
+        const ButLGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.003, 32 ,1 ,false);
+        const ButLMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,       // 基本の赤色
+            emissive: 0xff0000,    // 発光色
+            emissiveIntensity: 0   // 最初は消灯（0）
+        });
+        const ButL = new THREE.Mesh(ButLGeometry, ButLMaterial);
+        scene.add(ButL);
+        ButL.position.set(-1 * (reelWidth * 1.5 + 0.01), -0.14, reelheight + 0.0001);
+        ButL.rotation.set(Math.PI / 2, 0, 0); 
+
+        // 中ボタンを作成
+        const ButCGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.003, 32 ,1 ,false);
+        const ButCMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,       // 基本の赤色
+            emissive: 0xff0000,    // 発光色
+            emissiveIntensity: 0   // 最初は消灯（0）
+        });
+        const ButC = new THREE.Mesh(ButCGeometry, ButCMaterial);
+        scene.add(ButC);
+        ButC.position.set(0, -0.14, reelheight + 0.0001);
+        ButC.rotation.set(Math.PI / 2, 0, 0); 
+        
+        // 左ボタンを作成
+        const ButRGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.003, 32 ,1 ,false);
+        const ButRMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,       // 基本の赤色
+            emissive: 0xff0000,    // 発光色
+            emissiveIntensity: 0   // 最初は消灯（0）
+        });
+        const ButR = new THREE.Mesh(ButRGeometry, ButRMaterial);
+        scene.add(ButR);
+        ButR.position.set(reelWidth * 1.5 + 0.01, -0.14, reelheight + 0.0001);
+        ButR.rotation.set(Math.PI / 2, 0, 0); 
+
         // 光源を作成
         const light = new THREE.DirectionalLight(0xffffff);
-        light.intensity = 2; 
-        light.position.set(1, 1, 1); 
+        light.intensity = 0.5; 
+        light.position.set(0, 1, 1); 
         scene.add(light);
 
         // リールの初期位置調整
@@ -110,16 +265,54 @@
         meshReelR.rotation.x -= ((Math.PI*2)/21)*1.5;
         const meshReels = [meshReelL, meshReelC, meshReelR];
 
+        // 1. 盤面（マスク）のテクスチャをロード
+        const textureMask = textureLoader.load("./img/banmen.png");
+        const maskGeometry = new THREE.PlaneGeometry(0.42, 0.42 / 1262 * 646); 
+        const maskMaterial = new THREE.MeshPhongMaterial({
+            map: textureMask,
+            transparent: true, // 穴あき部分（透過）を有効にする
+            side: THREE.DoubleSide // 裏表描画
+        });
+        const meshMask = new THREE.Mesh(maskGeometry, maskMaterial);
+        meshMask.position.set(0.007, -0.005, reelheight); 
+        scene.add(meshMask);
+
+        // 4. 自照（エミッション）の設定（もし「32」ロゴを光らせたい場合）
+        //maskMaterial.emissive = new THREE.Color(0x220000); // ほのかに赤く光る
+        //maskMaterial.emissiveMap = textureMask; // テクスチャの明るい部分を光らせる
+
+        // --- ハイビ（共通設定） ---
+        const textureHana = textureLoader.load("./img/shine.png");
+        const hanaGeometry = new THREE.PlaneGeometry(0.05, 0.03);
+        const createHanaMaterial = () => new THREE.MeshPhongMaterial({
+            map: textureHana,
+            transparent: true,
+            side: THREE.DoubleSide,
+            emissive: new THREE.Color(0xff0000), // 赤く光る準備
+            emissiveIntensity: -0.15             // デフォルトは消灯（マイナス値）
+        });
+        const hanaMaterialL = createHanaMaterial();
+        const meshHanaL = new THREE.Mesh(hanaGeometry, hanaMaterialL);
+        const hanaPosX = (reelWidth * 1.5 + 0.01 + 0.07);
+        meshHanaL.position.set(-hanaPosX, -0.09, reelheight + 0.0001);
+        scene.add(meshHanaL);
+
+        // ** 32ちゃん ********************************************************
+        const mesh32chan = new THREE.Mesh(new THREE.PlaneGeometry(0.0275 * 1.3, 0.0738 * 1.3), new THREE.MeshPhongMaterial({
+            map: textureLoader.load("./img/32chan.png"),
+            transparent: true,
+            side: THREE.DoubleSide,
+            emissive: new THREE.Color(0xffffff), // 赤く光る準備
+            emissiveIntensity: -0.15             // デフォルトは消灯（マイナス値）
+        }));
+        mesh32chan.position.set((reelWidth * 1.5 + 0.01 + 0.07), 0.0, reelheight + 0.0001);
+        scene.add(mesh32chan);
 
         function chgTexture(nameStr, textureObj) {
 			var object = scene.getObjectByName(nameStr);
 			object.material.map = textureObj;
 			object.material.needsUpdate = true;
         }
-        //chgTexture("ReelL", textureReelL_blur);
-        //chgTexture("ReelC", textureReelC_blur);
-        //chgTexture("ReelR", textureReelR_blur);
-
 
         // レンダリング
         renderer.render(scene, camera);
@@ -127,27 +320,13 @@
 
         function roll() {
             requestAnimationFrame(roll);
-
-            // 箱を回転させる
-            //meshReelL.rotation.x += 0.18;
-            //meshReelC.rotation.x += 0.18;
-            //meshReelR.rotation.x += 0.18;
-            //box.rotation.y += 0.01;
-
-            // レンダリング
             renderer.render(scene, camera);
         }
-
-
-
-
-
-
-
 
         //アニメーションの開始時刻と経過時間を格納する変数
         let timeStart, timeElapsed;
         function frm(timeStamp) {
+
             // 初期処理
             if (timeStart === undefined) timeStart = timeStamp;
             timeElapsed = timeStamp - timeStart;
@@ -157,8 +336,6 @@
             paintReel(timeElapsed, enmLeft);
             paintReel(timeElapsed, enmCenter);
             paintReel(timeElapsed, enmRight);
-
-
 
             requestAnimationFrame(frm);
         }
@@ -189,6 +366,7 @@
         function getReelPos(totalMsec) {
             return Math.floor(totalMsec / msec1koma) % 21;
         }
+
         function positiveModulo(dividend, divisor) {
             let remainder = dividend % divisor;
             return remainder < 0 ? remainder + Math.abs(divisor) : remainder;
@@ -198,9 +376,7 @@
         function paintReel(msec, pos) {
             if (isNaN(msec)) msec = 0;
             if (0 <= reelTotalMsec[pos]) { // 回転中
-                //meshReels[pos].rotation.x += 2 * Math.PI * (msec / (msec1koma * 21));
                 reelTotalMsec[pos] += msec;
-                //reelPos[pos] = getReelPos(reelTotalMsec[pos]);
 
                 if (reelPos[pos] != reelPosWillStop[pos]) { // STOPボタン押下後の状態
                     meshReels[pos].rotation.x += 2 * Math.PI * (msec / (msec1koma * 21));
@@ -210,54 +386,43 @@
                     meshReels[pos].rotation.x += rad1koma * ((reelPos[pos] + 1) % 21); //rad1koma * ((Math.floor(meshReels[pos].rotation.x / rad1koma) % 21) - 1.5);
                     reelTotalMsec[pos] = -1;
                 }
+                leverMaterial.emissiveIntensity = 0;
+            } else {
+                updateLeverBlink(new Date());
             }
-
 
             if (reelPos[pos] != reelPosPrev[pos]) { // 次のコマ遷移時、描画
-                //reelObjs[pos][0].src = egara[reelHairetsu[pos][reelPos[pos]]].src;
-                //reelObjs[pos][1].src = egara[reelHairetsu[pos][positiveModulo(reelPos[pos] - 1, 21)]].src;
-                //reelObjs[pos][2].src = egara[reelHairetsu[pos][positiveModulo(reelPos[pos] - 2, 21)]].src;
                 reelPosPrev[pos] = reelPos[pos];
             }
-
-
-            
         }
-        //paintReel(0, 0);
-        //paintReel(0, 1);
-        //paintReel(0, 2);
         
         function stopReel(pos) {
             //reelTotalMsec[pos] = -1;
+            soundEngine.play('stop');
             reelPosWillStop[pos] = (reelPos[pos]) % 21;
-            chgTexture(meshReels[pos].name, textureReels[pos]);
+            //chgTexture(meshReels[pos].name, textureReels[pos]);
         }
         function stopL(e){
             stopReel(enmLeft);
         }
-        stopButtons[enmLeft].addEventListener("mousedown",stopL);
+        //stopButtons[enmLeft].addEventListener("mousedown",stopL);
         function stopC(e){
             stopReel(enmCenter);
         }
-        stopButtons[enmCenter].addEventListener("mousedown",stopC);
+        //stopButtons[enmCenter].addEventListener("mousedown",stopC);
         function stopR(e){
             stopReel(enmRight);
         }
-        stopButtons[enmRight].addEventListener("mousedown",stopR);
-        //function maxBet(e){
-        //    //stopReel(enmRight);
-        //}
-        //maxBetButton.addEventListener("mousedown",maxBet);
-        function startReel(e){
+        //stopButtons[enmRight].addEventListener("mousedown",stopR);
+        
+        function startReel(){//startReel(e){
             //取得したURLにタイムスタンプをパラメータとして付与する
-            const setParamUrl = './img/lever.gif?ts=' + Math.floor((new Date()).getTime() / 1000);
-            startButton.src = setParamUrl;
+            //const setParamUrl = './img/lever.gif?ts=' + Math.floor((new Date()).getTime() / 1000);
+            //startButton.src = setParamUrl;
 
-            chgTexture("ReelL", textureReelL_blur);
-            chgTexture("ReelC", textureReelC_blur);
-            chgTexture("ReelR", textureReelR_blur);
-
-            
+            //chgTexture("ReelL", textureReelL_blur);
+            //chgTexture("ReelC", textureReelC_blur);
+            //chgTexture("ReelR", textureReelR_blur);
 
             reelTotalMsec = [
                 msec1koma * reelPos[enmLeft]
@@ -266,9 +431,69 @@
             ];
             reelPosWillStop = [-1,-1,-1];
         }
-        startButton.addEventListener("mousedown",startReel);
+        //startButton.addEventListener("mousedown",startReel);
 
         frm();
+
+        window.addEventListener('resize', () => {
+            // 現在のサイズを取得
+            width = window.innerWidth;
+            height = window.innerHeight;
+
+            // レンダラーのサイズを修正
+            renderer.setSize(width, height);
+
+            // カメラのアスペクト比を再計算
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        });
+
+        // 1. レイキャスターとマウス座標の準備
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // 2. タップ（クリック）イベントの登録
+        window.addEventListener('pointerdown', (event) => {
+            // 画面上の座標を -1 ～ +1 の範囲に正規化（これがJSのアホな儀式ですｗ）
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // カメラからマウス位置に向かって光線を飛ばす
+            raycaster.setFromCamera(mouse, camera);
+
+            // 光線が「leverBall（レバーの丸い図形）」に当たったか判定
+            const intersects = raycaster.intersectObject(leverBall);
+            if (intersects.length > 0) {
+                // 【イベント発火！】
+                onLeverOn();
+            }
+
+            if (raycaster.intersectObject(ButL).length > 0) {
+                stopReel(enmLeft);
+                ButLMaterial.emissiveIntensity = 0;
+            }
+            if (raycaster.intersectObject(ButC).length > 0) {
+                stopReel(enmCenter);
+                ButCMaterial.emissiveIntensity = 0;
+            }
+            if (raycaster.intersectObject(ButR).length > 0) {
+                stopReel(enmRight);
+                ButRMaterial.emissiveIntensity = 0;
+            }
+        });
+
+        // 3. レバーオン時の処理
+        function onLeverOn() {
+            console.log("宝田独自規格：レバーオン！期待値上昇！");
+            soundEngine.play('leverOn');
+            // ここでリール回転開始や、レバーを赤く光らせる処理を呼ぶ
+            leverMaterial.emissiveIntensity = 2.0; // 叩いた瞬間だけ強発光！
+            updateLeverBlink(0)
+            startReel();
+            ButLMaterial.emissiveIntensity = 1;
+            ButCMaterial.emissiveIntensity = 1;
+            ButRMaterial.emissiveIntensity = 1;
+        }
     </script>
 </body>
 </html>
