@@ -25,6 +25,7 @@
 </head>
 <body><div id="cube" style="width: 100%;height: 0vh;"></div>
     <script type="module">
+
         // 1. オーディオ管理クラス
         class SlotSound {
             constructor() {
@@ -157,6 +158,31 @@
         camera.position.set(0, 0, 0.7);
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
+
+
+
+        //===========================================
+        // 1. OrbitControlsをインポート（CDNやnpmから）
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // 2. コントロールのインスタンス化
+        const controls = new OrbitControls(camera, renderer.domElement);
+
+        // 3. 挙動を「設定6」にチューニング
+        controls.enableDamping = true; // 慣性をきかせてヌルヌル動かす
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;    // 画面がどっか行かないように平行移動はオフ
+        controls.minDistance = 5;      // 32ちゃんに寄りすぎ禁止（ドアップ防止）
+        controls.maxDistance = 20;     // 離れすぎ禁止（豆粒防止）
+
+        // 4. アニメーションループ内で更新
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // これを入れないとヌルヌルしない
+            renderer.render(scene, camera);
+        }
+        //===========================================
+
 
         // リールを作成
         const loadingManager = new THREE.LoadingManager()
