@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="宝田ジャグ">
     <meta name="author" content="Akira Takarada">
+    <link rel="icon" href="data:,">
     <script type="importmap">
             {
             "imports": {
@@ -165,21 +166,26 @@
         // 1. OrbitControlsをインポート（CDNやnpmから）
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         
-        // 2. コントロールのインスタンス化
+        // --- 修正箇所 ---
         const controls = new OrbitControls(camera, renderer.domElement);
 
-        // 3. 挙動を「設定6」にチューニング
-        controls.enableDamping = true; // 慣性をきかせてヌルヌル動かす
+        controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.enablePan = false;    // 画面がどっか行かないように平行移動はオフ
-        controls.minDistance = 5;      // 32ちゃんに寄りすぎ禁止（ドアップ防止）
-        controls.maxDistance = 20;     // 離れすぎ禁止（豆粒防止）
+        controls.enablePan = false;
+
+        // 筐体のスケールに合わせて制限を「0.7」付近にする
+        controls.minDistance = 0.3;  // 32ちゃんに顔がめり込むくらい寄れる
+        controls.maxDistance = 1.5;  // スマホ縦画面でも全体が入るくらいまで引ける
+
+        // カメラの描画限界（Far）も少し余裕を持たせる（0.1〜2 だったのを 5 くらいに）
+        camera.far = 5; 
+        camera.updateProjectionMatrix();
 
         // 4. アニメーションループ内で更新
         function animate() {
             requestAnimationFrame(animate);
             controls.update(); // これを入れないとヌルヌルしない
-            renderer.render(scene, camera);
+            //renderer.render(scene, camera);
         }
         //===========================================
 
@@ -342,12 +348,11 @@
 
         // レンダリング
         renderer.render(scene, camera);
-        roll();
+        //roll();
 
-        function roll() {
-            requestAnimationFrame(roll);
-            renderer.render(scene, camera);
-        }
+        //function roll() {
+        //    requestAnimationFrame(roll);
+        //}
 
         //アニメーションの開始時刻と経過時間を格納する変数
         let timeStart, timeElapsed;
@@ -363,6 +368,8 @@
             paintReel(timeElapsed, enmCenter);
             paintReel(timeElapsed, enmRight);
 
+            animate();
+            renderer.render(scene, camera);
             requestAnimationFrame(frm);
         }
 
