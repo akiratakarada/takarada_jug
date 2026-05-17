@@ -50,7 +50,11 @@
         const reelHairetsu = [layoutLeft, layoutCenter, layoutRight];
 
         const enmLeft = 0, enmCenter = 1, enmRight = 2;
-        const msec1koma = (60000 / 80) / 21; 
+        
+        // ★保通協規定：1分間に80回転以内（実機は約79.5回転＝1周約0.754秒）
+        // 1回転（21コマ）を 754.71ミリ秒 で回す計算に設定
+        const msec1周 = 60000 / 79.5; 
+        const msec1koma = msec1周 / 21; 
         const rad1koma = (2 * Math.PI) / 21; 
         const reelWidth = 0.05;
         const reelheight = 0.22 / 2; 
@@ -86,7 +90,6 @@
         let reelControls = {};   
         let reelTotalMsec = [-1, -1, -1];    
         
-        // 中段に20番（インデックス19）を表示させるための初期設定
         let reelPos = [19, 19, 19];          
         let reelPosPrev = [18, 18, 18];      
         let reelPosWillStop = [19, 19, 19];  
@@ -166,40 +169,31 @@
                         const hairetsu = reelHairetsu[reelIdx];
                         const table = new Array(21).fill(0);
 
-                        // 押された位置（0〜20番）ごとにスベリコマ数を計算
                         for (let pressedPos = 0; pressedPos < 21; pressedPos++) {
                             let bestSlip = 0;
                             let found = false;
 
-                            // 画面表示と配列添字の反転を考慮した「押下時の中段インデックス」
                             const actualPressedIdx = positiveModulo(20 - pressedPos, 21);
 
-                            // -------------------------------------------------------------
-                            // A. 小役フラグ成立時：成立した小役を最大4コマで引き込む
-                            // -------------------------------------------------------------
                             if (flg === FLAG_BUDOU || flg === FLAG_REPLAY || flg === FLAG_CHERRY || flg === FLAG_PIERO || flg === FLAG_BELL) {
                                 const targetSymbol = FLAG_TO_SYMBOL[flg];
 
-                                // スベリコマ数 0〜4 コマを順にチェック（上から降ってくる＝加算方向）
                                 for (let s = 0; s <= 4; s++) {
                                     let checkIdx = positiveModulo(actualPressedIdx + s, 21);
                                     let currentSymbol = hairetsu[checkIdx];
 
                                     if (currentSymbol === targetSymbol) {
-                                        // チェリー以外を狙っている時に、中段にチェリーが止まるのを避ける（チェリーの引き込み規制）
                                         if (flg !== FLAG_CHERRY && currentSymbol === 'CHE') continue;
                                         
                                         bestSlip = s;
                                         found = true;
-                                        break; // 最もスベリが少ない位置で引き込み確定
+                                        break; 
                                     }
                                 }
 
-                                // 万が一、配列上に4コマ以内で見つからなかった場合のセーフティ（引き込めない位置）
                                 if (!found) {
                                     for (let s = 0; s <= 4; s++) {
                                         let checkIdx = positiveModulo(actualPressedIdx + s, 21);
-                                        // ボーナス図柄（7, BAR）を避けて停止させる
                                         if (hairetsu[checkIdx] !== '7' && hairetsu[checkIdx] !== 'BAR') {
                                             bestSlip = s;
                                             break;
@@ -207,11 +201,7 @@
                                     }
                                 }
                             }
-                            // -------------------------------------------------------------
-                            // B. ボーナス成立時（フラグ保持中含む）：対象のボーナス図柄を引き込む
-                            // -------------------------------------------------------------
                             else if (flg === FLAG_BIG || flg === FLAG_REG || st === STATE_IN_BIG || st === STATE_IN_REG) {
-                                // 内部状態または当月フラグに応じて狙う図柄を決定
                                 const isBigTarget = (flg === FLAG_BIG || st === STATE_IN_BIG);
                                 const targetSymbol = isBigTarget ? '7' : 'BAR';
 
@@ -219,7 +209,6 @@
                                     let checkIdx = positiveModulo(actualPressedIdx + s, 21);
                                     let currentSymbol = hairetsu[checkIdx];
 
-                                    // 対象のボーナス図柄、または代用となるボーナス図柄があるか
                                     if (currentSymbol === targetSymbol || (isBigTarget && currentSymbol === 'BAR')) {
                                         bestSlip = s;
                                         found = true;
@@ -227,7 +216,6 @@
                                     }
                                 }
                                 
-                                // まだボーナスを揃えない（揃えられない）位置の場合は、ハズレ制御に逃がす
                                 if (!found) {
                                     for (let s = 0; s <= 4; s++) {
                                         let checkIdx = positiveModulo(actualPressedIdx + s, 21);
@@ -238,15 +226,11 @@
                                     }
                                 }
                             }
-                            // -------------------------------------------------------------
-                            // C. 通常時のハズレ時：ボーナス図柄（7やBAR）を完全に蹴飛ばす
-                            // -------------------------------------------------------------
                             else if (st === STATE_NO_BONUS && flg === FLAG_HAZURE) {
                                 for (let s = 0; s <= 4; s++) {
                                     let checkIdx = positiveModulo(actualPressedIdx + s, 21);
                                     let currentSymbol = hairetsu[checkIdx];
 
-                                    // 中段に7やBARが止まらない最小のスベリ位置を選択（蹴飛ばし）
                                     if (currentSymbol !== '7' && currentSymbol !== 'BAR') {
                                         bestSlip = s;
                                         break;
@@ -254,7 +238,6 @@
                                 }
                             }
 
-                            // 決定したスベリコマ数をテーブルに格納
                             table[pressedPos] = bestSlip;
                         }
                         reelControls[st][flg][reelIdx] = table;
@@ -317,7 +300,6 @@
 
         meshReels.forEach(mesh => {
             mesh.rotation.set(0, 0, Math.PI / 2);
-            // ★修正ポイント：図柄の隙間が正面を向かないよう、+0.5コマ分のオフセット（rad1koma * 0.5）を追加してセンタリング
             mesh.rotation.x = (rad1koma * reelPos[0]) + (rad1koma * 0.5);
             scene.add(mesh);
         });
@@ -463,8 +445,6 @@
             const pressedPos = reelPos[pos]; 
             const slippage = reelControls[main_state][main_flgKoyaku][pos][pressedPos];
             
-            // ★修正ポイント：滑る方向を「足し算」から「引き算（逆転考慮）」に変更
-            // 3Dモデルの回転方向（インデックスが増える側）に対して、絵柄番号を進める＝インデックスを戻す
             const targetPos = positiveModulo(pressedPos - slippage, 21);
 
             console.log(`リール[${pos}] 押下:${pressedPos+1}番目 => 【${slippage}コマ滑り】 => 停止:${targetPos+1}番目`);
@@ -476,13 +456,10 @@
         function positiveModulo(dividend, divisor) { let remainder = dividend % divisor; return remainder < 0 ? remainder + Math.abs(divisor) : remainder; }
         
         function checkLinePayout() {
-            // 停止した際のインデックス（0〜20）
             const stopL = reelPos[enmLeft];
             const stopC = reelPos[enmCenter];
             const stopR = reelPos[enmRight];
 
-            // ★修正ポイント：絵柄番号と配列添字の反転を完全に考慮
-            // インデックス0のときに配列の21番目（インデックス20）、インデックス19のときに配列の2番目（インデックス1）を参照する
             const idxL = positiveModulo(20 - stopL, 21);
             const idxC = positiveModulo(20 - stopC, 21);
             const idxR = positiveModulo(20 - stopR, 21);
@@ -491,7 +468,6 @@
             const symC = layoutCenter[idxC];
             const symR = layoutRight[idxR];
 
-            // ログ上の「番数」の表示も、1番〜21番の正しい絵柄番号に一致させる
             console.log(`【有効ライン（中段）停止番数】 左: ${idxL + 1}番 / 中: ${idxC + 1}番 / 右: ${idxR + 1}番`);
             console.log(`【出目（画面と一致）】 左: ${symL} / 中: ${symC} / 右: ${symR}`);
 
@@ -527,10 +503,9 @@
                 reelTotalMsec[pos] += msec;
 
                 if (reelPos[pos] != reelPosWillStop[pos]) { 
-                    meshReels[pos].rotation.x += 2 * Math.PI * (msec / (msec1koma * 21));
+                    meshReels[pos].rotation.x += 2 * Math.PI * (msec / msec1周);
                     reelPos[pos] = getReelPos(reelTotalMsec[pos]);
                 } else {
-                    // ★修正ポイント：ピタ止まり位置にも、初期配置と同様に+0.5コマ分のオフセットを加算してセンターを出す
                     meshReels[pos].rotation.x = (rad1koma * reelPos[pos]) + (rad1koma * 0.5); 
                     reelTotalMsec[pos] = -1;
 
@@ -565,8 +540,8 @@
             timeElapsed = timeStamp - timeStart;
             timeStart = timeStamp;
 
+            // ★修正ポイント：余計な左リールの二重呼び出しを削除し、一律等速に駆動
             paintReel(timeElapsed, enmLeft);
-            paintReel(timeElapsed, msec1koma * 0, enmLeft); 
             paintReel(timeElapsed, enmCenter);
             paintReel(timeElapsed, enmRight);
             
