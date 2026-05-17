@@ -437,19 +437,21 @@
         }
 
         function stopReel(pos) {
-            if (reelPosWillStop[pos] !== -1) return;
-            if (reelTotalMsec[pos] === -1) return; 
-            
-            soundEngine.play('stop');
+                    if (reelPosWillStop[pos] !== -1) return;
+                    if (reelTotalMsec[pos] === -1) return; 
+                    
+                    soundEngine.play('stop');
 
-            const pressedPos = reelPos[pos]; 
-            const slippage = reelControls[main_state][main_flgKoyaku][pos][pressedPos];
-            
-            const targetPos = positiveModulo(pressedPos - slippage, 21);
+                    const pressedPos = reelPos[pos]; 
+                    const slippage = reelControls[main_state][main_flgKoyaku][pos][pressedPos];
+                    
+                    // ★修正：滑る方向を「引き算」から「足し算」に修正！
+                    // 押された位置から、スベリコマ数ぶん正しく図柄を進めて停止させる
+                    const targetPos = positiveModulo(pressedPos + slippage, 21);
 
-            console.log(`リール[${pos}] 押下:${pressedPos+1}番目 => 【${slippage}コマ滑り】 => 停止:${targetPos+1}番目`);
+                    console.log(`リール[${pos}] 押下:${pressedPos+1}番目 => 【${slippage}コマ滑り】 => 停止:${targetPos+1}番目`);
 
-            reelPosWillStop[pos] = targetPos;
+                    reelPosWillStop[pos] = targetPos;
         }
 
         function getReelPos(totalMsec) { return Math.floor(totalMsec / msec1koma) % 21; }
